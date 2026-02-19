@@ -19,7 +19,10 @@ def makeBufferJoint(*args):
 
 def orientJointForUnreal(*args):
     jointForOrient = cmds.ls(selection = True)[0]
-    cmds.makeIdentity(jointForOrient, apply = True, translate = True, rotate = True, scale = True, jointOrient = True)
+    bufferJoint = setupReorientJoint()
+    cmds.select(bufferJoint)
+    setupReorientJoint()
+    
     print('orientJointForUnreal(), jointForOrient is: ' + str(jointForOrient))
     reorientChildrenValue = cmds.checkBox(reorientChildren, query=True, value=True)
     reverseXValue = cmds.checkBox(reverseX, query=True, value=True)
@@ -28,6 +31,7 @@ def orientJointForUnreal(*args):
     cmds.joint(jointForOrient, edit = True, orientJoint = 'xzy', secondaryAxisOrient = 'xdown', children = reorientChildrenValue, zeroScaleOrient = True) #
     
     if reverseXValue == True:
+        print('orientJointForUnreal(), reverseXValue is running and that value is: ' + str(reverseXValue))
         cmds.joint(jointForOrient, edit = True, orientJoint = 'xzy', secondaryAxisOrient = 'ydown', children = reorientChildrenValue, zeroScaleOrient = True)#  
         bufferJoint = setupJointForReorient()
         cmds.rotate(0,180,0, bufferJoint)
@@ -55,12 +59,14 @@ def parentShapesUnderControl(controlJoint, importedShape):
 
 def renameBodyJoints(*args):
     print('renameBodyJoints(), the FBSideAbbreviation is: ' + str(FBSideAbbreviation))
-    print('renameBodyJoints(), the RLSideAbbreviation is: ' + str(RLSideAbbreviation))
+    print('renameBodyJoints(), the RLSideAbbreviation is: ' + str(RLSideAbbreviation)) 
+    isStretchyJoint = cmds.checkBox(isStretchyJointCheckbox, query=True, value=True)
     isTwistJoint = cmds.checkBox(isTwistJointCheckbox, query=True, value=True)
     isDeformJoint = cmds.checkBox(isDeformJointCheckbox, query=True, value=True)
     isDynamicsJoint = cmds.checkBox(isDynamicJointCheckbox, query=True, value=True)
     isAttachJoint = cmds.checkBox(isAttachJointCheckbox, query=True, value=True)
     isEnumerated = cmds.checkBox(isEnumeratedCheckbox, query=True, value=True)
+    isPositionJoint = cmds.checkBox(isPositionJointCheckbox, query=True, value=True)
     print('renameBodyJoints(), isTwistJoint is: ' + str(isTwistJoint))
     if isEnumerated == True:
         print('renameBodyJoints(), isEnumerated is ' + str(isEnumerated))
@@ -69,27 +75,39 @@ def renameBodyJoints(*args):
         i = startNumberSequence
     
     jointSelection = cmds.ls(selection = True)
-    name = bodyRegion
-    if jointSelection:
+    renameList = []
+    if jointSelection:  
         for eachJoint in jointSelection:
+            name = bodyRegion
+            if isStretchyJoint:
+                name = 'stretchy_' + name
             if isTwistJoint:
                 name = name + '_twist'
             if isDeformJoint:
                 name = 'deform_' + name 
             if isDynamicsJoint:
                 name = 'dyn_' + name
+            if isPositionJoint:
+                name = name + '_pos'
             if isAttachJoint:
                 name = name + '_Attach'
             if isEnumerated == True:
                 name = name + '_' + str(0) + str(i)
             if FBSideAbbreviation != None:
                 name = name + '_' + FBSideAbbreviation
+                i = i+1
             if RLSideAbbreviation != None:
                 name = name + '_' + RLSideAbbreviation
             print('renameBodyJoints(), the name is :' + name)
-            cmds.rename(eachJoint, name)
+            renameList.append(name)
+        jointSelection.reverse()
+        renameList.reverse()
+        for eachJoint, eachName in zip(jointSelection, renameList):
+            cmds.rename(eachJoint, eachName)
+            print('renameBodyJoints(), the eachJoint is: ' + eachJoint + ' and the eachName is: ' + eachName)
     else:
          print('renameBodyJoints(),you gotta select a joint bra')
+
 
 
 def renameFingerJoints(*args):
@@ -145,7 +163,8 @@ def setupReorientJoint(*args):
     selection = cmds.ls(selection = True)
     selection = selection[0]
     if '_ReorientJoint' not in selection:
-        setupJointForReorient()
+        bufferJoint = setupJointForReorient()
+        return bufferJoint
     else:
         cleanupReorientedJoint()
 
@@ -219,6 +238,45 @@ def importObject(nameOfFile):
     return importedObject
 
 
+def listDuplicateJoints(*args):
+    jointSelection = cmds.ls(selection = True)
+    if jointSelection != None:
+        jointSelection = jointSelection[0]
+        jointChildren = cmds.listRelatives(jointSelection, allDescendents = True, type= 'joint')
+        jointChildren.insert(0, jointSelection)  
+        
+        for eachJoint in jointChildren:
+            duplicateJoints = []
+            for eachJoint2 in jointChildren:
+                if eachJoint == eachJoint2:
+                    duplicateJoints.append(eachJoint)
+                    if len(duplicateJoints) > 2:
+                        print('listDuplicateJoints(), the joint ' + eachJoint + ' is duplicated')
+                        return
+                    else:
+                        print('listDuplicateJoints(), no duplicates found')
+                        duplicateJoints = []
+        print('listDuplicateJoints(), the duplicateJoints are: ' + str(duplicateJoints))
+
+
+def listSkinJoints(*args):
+    jointRoot = cmds.textField('jointRootTextField', query = True, text = True)
+    jointHierarchy = cmds.listRelatives(jointRoot, allDescendents = True, type = 'joint')
+    skinJoints = []
+    for eachJoint in jointHierarchy:
+        if 'end' not in eachJoint:
+            skinJoints.append(eachJoint)
+    return skinJoints
+
+def selectSkinJoints(*args):
+    jointRoot = cmds.textField('jointRootTextField', query = True, text = True)
+    jointHierarchy = cmds.listRelatives(jointRoot, allDescendents = True, type = 'joint')
+    skinJoints = []
+    for eachJoint in jointHierarchy:
+        if 'end' not in eachJoint and 'UNWEIGHTED' not in eachJoint:
+            cmds.select(eachJoint, add = True)
+    return skinJoints
+
 def setControlType(control):
     global controlType
     controlType = control
@@ -273,6 +331,15 @@ def setRLSideFinger(RLsideOfBody):
     print('setRLSide(), the RLSideAbbreviationFingers is:' + str(RLSideAbbreviationFingers))
 
 
+def skinSelectedMeshes(*args):
+    selectedMeshes = cmds.ls(selection = True)
+    skinJoints = []
+    skinJoints = listSkinJoints()
+    cmds.select(skinJoints, replace = True)
+    for eachMesh in selectedMeshes:
+        cmds.skinCluster(skinJoints,eachMesh, toSelectedBones=True)
+
+
 
 #___________________________________________Start GUI___________________________________________
 
@@ -297,6 +364,8 @@ cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1,400), (2,400)], columnOf
 reorientChildren = cmds.checkBox(label='Reorient Children', value=False)
 reverseX = cmds.checkBox(label='reverseX (leg left)', value=False)
 cmds.button(label = 'Orient Joint for Unreal (Left)', command = orientJointForUnreal)
+
+cmds.button(label = 'List Duplicate Joints', command = listDuplicateJoints)
 cmds.setParent('..')
 
 cmds.setParent('..')
@@ -307,7 +376,7 @@ cmds.setParent('..')
 tabChild2 = cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1,400), (2,400)], columnOffset=[(1,'both', 3)])
 cmds.text('Controller Scale')
 controllerScale = cmds.floatField('controllerScale', value=1.0)
-controlTypeMenu = cmds.optionMenu(label='Joint Chain Direction, Medial', changeCommand=setControlType)
+controlTypeMenu = cmds.optionMenu(label='Control Type', changeCommand=setControlType)
 cmds.menuItem(label='Rotation_Control')
 
 #cmds.button(label = 'Create Medial Joint Chain', command = createMedialJoints)
@@ -349,17 +418,20 @@ cmds.setParent('..')
 
 cmds.separator(h=10, style='single')
 
-cmds.rowColumnLayout(numberOfColumns=4, columnWidth=[(1,200), (2,200), (3,200), (4,200)], columnOffset=[(1,'both', 3)])
+cmds.rowColumnLayout(numberOfColumns=6, columnWidth=[(1,130), (2,130), (3,130), (4,130), (5,130), (6,130)], columnOffset=[(1,'both', 3)])
+isStretchyJointCheckbox = cmds.checkBox(label='stretchy joint', value=False)
 isTwistJointCheckbox = cmds.checkBox(label='twist joint', value=False)
 isDeformJointCheckbox = cmds.checkBox(label='deform joint', value=False)
 isDynamicJointCheckbox = cmds.checkBox(label='dynamic joint', value=False)
 isAttachJointCheckbox = cmds.checkBox(label='attach joint', value=False)
+isPositionJointCheckbox = cmds.checkBox(label='position joint', value=False)
 cmds.setParent('..')
 
 cmds.separator(h=10, style='double')
 
 cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1,400), (2,400)], columnOffset=[(1,'both', 3)])
 bodyRegion = cmds.optionMenu(label='Body Region', changeCommand=setBodyRegionName)
+cmds.menuItem(label='pelvis')
 cmds.menuItem(label='spine')
 cmds.menuItem(label='neck')
 cmds.menuItem(label='head')
@@ -375,6 +447,8 @@ cmds.menuItem(label='knee')
 cmds.menuItem(label='calf')
 cmds.menuItem(label='foot')
 cmds.menuItem(label='ball')
+cmds.menuItem(label='toe')
+cmds.menuItem(label='heel')
 cmds.button(label = 'Rename Joint', command = renameBodyJoints)
 cmds.setParent('..')
 
@@ -413,7 +487,9 @@ cmds.setParent('..')
 #___________________________________________Start_Tab4___________________________________________
 
 tabChild4 = cmds.rowColumnLayout(numberOfColumns=1, columnWidth=[(1,800)], columnOffset=[(1,'both', 3)])
-
+cmds.textField('jointRootTextField', text = 'root')
+cmds.button(label = 'Select Skin Joints', command = selectSkinJoints)
+cmds.button(label = 'Skin Selected Meshes', command = skinSelectedMeshes)
 
 cmds.setParent('..')
 
@@ -433,7 +509,7 @@ tabChild6 = cmds.rowColumnLayout(numberOfColumns=1, columnWidth=[(1,400)], colum
 cmds.text('Select the root of the joint chain, enter body part key, set the down axis and run Align Joint Chain')
 cmds.rowColumnLayout(numberOfColumns=5, columnWidth=[(1,200), (2,50), (3,50), (4,50), (5,150)], columnOffset=[(1,'both', 3)])
 
-cmds.tabLayout(tabs, edit=True, tabLabel=((tabChild1, 'Joint Tools'), (tabChild2, 'Controls Setup'),  (tabChild3, 'Joint Naming Unreal'), (tabChild4, 'Select Joints'), (tabChild5, 'Unskin/Export'), (tabChild6, 'Other Tools')) )
+cmds.tabLayout(tabs, edit=True, tabLabel=((tabChild1, 'Joint Tools'), (tabChild2, 'Controls Setup'),  (tabChild3, 'Joint Naming Unreal'), (tabChild4, 'Skinning'), (tabChild5, 'Unskin/Export'), (tabChild6, 'Other Tools')) )
 
 
 
