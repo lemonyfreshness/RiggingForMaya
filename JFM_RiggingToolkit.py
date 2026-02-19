@@ -1,13 +1,192 @@
 import maya.cmds as cmds
+import json
+import os
 
 controlType = 'Rotation_Control'
-bodyRegion = 'spine'
+bodyRegion = 'custom'
 fingerChain = 'thumb'
 auxJointType = 'deform'
 RLSideAbbreviation = None
 FBSideAbbreviation = None
 RLSideAbbreviationFingers = 'l'
+namingConventionSwapDirection = 'JFM to Unreal'
 
+defaultNamingConventionSwapData = { 
+    "UNWEIGHTED_SKIN_COG": "COG",
+    "UNWEIGHTED_SACRUM_SPINE_0": "pelvis",
+    "UNWEIGHTED_SPINE_1": "spine_01",
+    "UNWEIGHTED_SPINE_2": "spine_02",
+    "UNWEIGHTED_SPINE_3": "spine_03",
+    "UNWEIGHTED_SPINE_4": "spine_04",
+    "UNWEIGHTED_NECK_0": "neck_00",
+    "UNWEIGHTED_NECK_1": "neck_01",
+    "UNWEIGHTED_NECK_2": "neck_02",
+    "UNWEIGHTED_NECK_3": "neck_03",
+    "UNWEIGHTED_NECK_3_HEAD": "head",
+    "SKIN_SQUASH_STRETCH_SACRUM_SPINE_0": "stretchy_pelvis",
+    "SKIN_SQUASH_STRETCH_SPINE_1": "stretchy_spine_01",
+    "SKIN_SQUASH_STRETCH_SPINE_2": "stretchy_spine_02",
+    "SKIN_SQUASH_STRETCH_SPINE_3": "stretchy_spine_03",
+    "SKIN_SQUASH_STRETCH_SPINE_4": "stretchy_spine_04",
+    "SKIN_SQUASH_STRETCH_NECK_0": "stretchy_neck_01",
+    "SKIN_SQUASH_STRETCH_NECK_1": "stretchy_neck_02",
+    "SKIN_SQUASH_STRETCH_NECK_2": "stretchy_neck_03",
+    "SKIN_ARM_CLAVICLE_LEFT": "clavicle_l",
+    "SKIN_ARM_CLAVICLE_RIGHT": "clavicle_r",
+    "SKNCONTROL_ARM_SHOULDER_GIMBLE_LEFT": "deform_shoulder_gimble_l",
+    "SKNCONTROL_ARM_SHOULDER_GIMBLE_RIGHT": "deform_shoulder_gimble_r",
+    "SKIN_ARM_SHOULDER_LEFT": "upperarm_l",
+    "SKIN_ARM_SHOULDER_RIGHT": "upperarm_r",
+    "SKIN_ARM_ELBOW_LEFT": "lowerarm_l",
+    "SKIN_ARM_ELBOW_RIGHT": "lowerarm_r",
+    "SKNCONTROL_UPPER_ARM_TWIST_1_LEFT": "upperarm_twist_01_l",
+    "SKNCONTROL_UPPER_ARM_TWIST_1_RIGHT": "upperarm_twist_01_r",
+    "SKNCONTROL_UPPER_ARM_TWIST_2_LEFT": "upperarm_twist_02_l",
+    "SKNCONTROL_UPPER_ARM_TWIST_2_RIGHT": "upperarm_twist_02_r",
+    "SKNCONTROL_LOWER_ARM_TWIST_1_LEFT": "lowerarm_twist_01_l",
+    "SKNCONTROL_LOWER_ARM_TWIST_1_RIGHT": "lowerarm_twist_01_r",
+    "SKNCONTROL_LOWER_ARM_TWIST_2_LEFT": "lowerarm_twist_02_l",
+    "SKNCONTROL_LOWER_ARM_TWIST_2_RIGHT": "lowerarm_twist_02_r",
+    "SKNCONTROL_ARM_ELBOW_INNER_VOLUME_LEFT": "deform_elbow_fr_l",
+    "SKNCONTROL_ARM_ELBOW_INNER_VOLUME_RIGHT": "deform_elbow_fr_r",
+    "SKNCONTROL_ARM_ELBOW_OUTER_VOLUME_LEFT": "deform_elbow_bk_l",
+    "SKNCONTROL_ARM_ELBOW_OUTER_VOLUME_RIGHT": "deform_elbow_bk_r",
+    "SKNCONTROL_ARM_WRIST_GIMBLE_LEFT": "deform_wrist_gimble_l",
+    "SKNCONTROL_ARM_WRIST_GIMBLE_RIGHT": "deform_wrist_gimble_r",
+    "SKNCONTROL_ARM_WRIST_LEFT": "deform_wrist_l",
+    "SKNCONTROL_ARM_WRIST_RIGHT": "deform_wrist_r",
+    "SKIN_HAND_INDEX_METACARPAL_LEFT": "index_metacarpal_l",
+    "SKIN_HAND_INDEX_METACARPAL_RIGHT": "index_metacarpal_r",
+    "SKIN_HAND_INDEX_1_LEFT": "index_01_l",
+    "SKIN_HAND_INDEX_1_RIGHT": "index_01_r",
+    "SKIN_HAND_INDEX_2_LEFT": "index_02_l",
+    "SKIN_HAND_INDEX_2_RIGHT": "index_02_r",
+    "SKIN_HAND_INDEX_3_LEFT": "index_03_l",
+    "SKIN_HAND_INDEX_3_RIGHT": "index_03_r",
+    "SKIN_HAND_INDEX_END_LEFT": "index_03_l_end",
+    "SKIN_HAND_INDEX_END_RIGHT": "index_03_r_end",
+    "SKIN_HAND_MIDDLE_1_LEFT": "middle_01_l",
+    "SKIN_HAND_MIDDLE_1_RIGHT": "middle_01_r",
+    "SKIN_HAND_MIDDLE_2_LEFT": "middle_02_l",
+    "SKIN_HAND_MIDDLE_2_RIGHT": "middle_02_r",
+    "SKIN_HAND_MIDDLE_3_LEFT": "middle_03_l",
+    "SKIN_HAND_MIDDLE_3_RIGHT": "middle_03_r",
+    "SKIN_HAND_MIDDLE_END_LEFT": "middle_03_l_end",
+    "SKIN_HAND_MIDDLE_END_RIGHT": "middle_03_r_end",
+    "SKIN_HAND_RING_1_LEFT": "ring_01_l",
+    "SKIN_HAND_RING_1_RIGHT": "ring_01_r",
+    "SKIN_HAND_RING_2_LEFT": "ring_02_l",
+    "SKIN_HAND_RING_2_RIGHT": "ring_02_r",
+    "SKIN_HAND_RING_3_LEFT": "ring_03_l",
+    "SKIN_HAND_RING_3_RIGHT": "ring_03_r",
+    "SKIN_HAND_RING_END_LEFT": "ring_03_l_end",
+    "SKIN_HAND_RING_END_RIGHT": "ring_03_r_end",
+    "SKIN_HAND_PINKY_1_LEFT": "pinky_01_l",
+    "SKIN_HAND_PINKY_1_RIGHT": "pinky_01_r",
+    "SKIN_HAND_PINKY_2_LEFT": "pinky_02_l",
+    "SKIN_HAND_PINKY_2_RIGHT": "pinky_02_r",
+    "SKIN_HAND_PINKY_3_LEFT": "pinky_03_l",
+    "SKIN_HAND_PINKY_3_RIGHT": "pinky_03_r",
+    "SKIN_HAND_PINKY_END_LEFT": "pinky_03_l_end",
+    "SKIN_HAND_PINKY_END_RIGHT": "pinky_03_r_end",
+    "SKNCONTROL_LEG_HIP_ROOT_LEFT": "hip_root_l",
+    "SKNCONTROL_LEG_HIP_ROOT_RIGHT": "hip_root_r",
+    "UNWEIGHTED_LEG_HIP_GAP_LEFT": "hip_gap_l",
+    "UNWEIGHTED_LEG_HIP_GAP_RIGHT": "hip_gap_r",
+    "UNWEIGHTED_LEG_HIP_GIMBLE_LEFT": "hip_gimble_l",
+    "UNWEIGHTED_LEG_HIP_GIMBLE_RIGHT": "hip_gimble_r",
+    "SKIN_LEG_HIP_LEFT": "thigh_l",
+    "SKIN_LEG_HIP_RIGHT": "thigh_r",
+    "SKIN_LEG_KNEE_1_LEFT": "calf_l",
+    "SKIN_LEG_KNEE_1_RIGHT": "calf_r",
+    "SKIN_LEG_KNEE_2_LEFT": "calf_02_l",
+    "SKIN_LEG_KNEE_2_RIGHT": "calf_02_r",
+    "SKIN_LEG_ANKLE_LEFT": "foot_l",
+    "SKIN_LEG_ANKLE_RIGHT": "foot_r",
+    "SKIN_LEG_FOOT_METATARSAL_LEFT": "metatarsal_l",
+    "SKIN_LEG_FOOT_METATARSAL_RIGHT": "metatarsal_r",
+    "SKIN_LEG_FOOT_BALL_LEFT": "ball_l",
+    "SKIN_LEG_FOOT_BALL_RIGHT": "ball_r",
+    "SKIN_TOE_THUMB_1_LEFT": "thumbtoe_01_l",
+    "SKIN_TOE_THUMB_1_RIGHT": "thumbtoe_01_r",
+    "SKIN_TOE_THUMB_2_LEFT": "thumbtoe_02_l",
+    "SKIN_TOE_THUMB_2_RIGHT": "thumbtoe_02_r",
+    "SKIN_TOE_THUMB_3_LEFT": "thumbtoe_03_l",
+    "SKIN_TOE_THUMB_3_RIGHT": "thumbtoe_03_r",
+    "SKIN_TOE_THUMB_END_LEFT": "thumbtoe_03_l_end",
+    "SKIN_TOE_THUMB_END_RIGHT": "thumbtoe_03_r_end",
+    "SKIN_TOE_INDEX_1_LEFT": "toe_01_l",
+    "SKIN_TOE_INDEX_1_RIGHT": "toe_01_r",
+    "SKIN_TOE_INDEX_2_LEFT": "toe_02_l",
+    "SKIN_TOE_INDEX_2_RIGHT": "toe_02_r",
+    "SKIN_TOE_INDEX_3_LEFT": "toe_03_l",
+    "SKIN_TOE_INDEX_3_RIGHT": "toe_03_r",
+    "SKIN_TOE_INDEX_END_LEFT": "toe_03_l_end",
+    "SKIN_TOE_INDEX_END_RIGHT": "toe_03_r_end",
+    "SKIN_TOE_MIDDLE_1_LEFT": "middletoe_01_l",
+    "SKIN_TOE_MIDDLE_1_RIGHT": "middletoe_01_r",
+    "SKIN_TOE_MIDDLE_2_LEFT": "middletoe_02_l",
+    "SKIN_TOE_MIDDLE_2_RIGHT": "middletoe_02_r",
+    "SKIN_TOE_MIDDLE_3_LEFT": "middletoe_03_l",
+    "SKIN_TOE_MIDDLE_3_RIGHT": "middletoe_03_r",
+    "SKIN_TOE_MIDDLE_END_LEFT": "middletoe_03_l_end",
+    "SKIN_TOE_MIDDLE_END_RIGHT": "middletoe_03_r_end",
+    "SKIN_TOE_RING_1_LEFT": "ringtoe_01_l",
+    "SKIN_TOE_RING_1_RIGHT": "ringtoe_01_r",
+    "SKIN_TOE_RING_2_LEFT": "ringtoe_02_l",
+    "SKIN_TOE_RING_2_RIGHT": "ringtoe_02_r",
+    "SKIN_TOE_RING_3_LEFT": "ringtoe_03_l",
+    "SKIN_TOE_RING_3_RIGHT": "ringtoe_03_r",
+    "SKIN_TOE_RING_END_LEFT": "ringtoe_03_l_end",
+    "SKIN_TOE_RING_END_RIGHT": "ringtoe_03_r_end",
+    "SKIN_TOE_PINKY_1_LEFT": "pinkytoe_01_l",
+    "SKIN_TOE_PINKY_1_RIGHT": "pinkytoe_01_r",
+    "SKIN_TOE_PINKY_2_LEFT": "pinkytoe_02_l",
+    "SKIN_TOE_PINKY_2_RIGHT": "pinkytoe_02_r",
+    "SKIN_TOE_PINKY_3_LEFT": "pinkytoe_03_l",
+    "SKIN_TOE_PINKY_3_RIGHT": "pinkytoe_03_r",
+    "SKIN_TOE_PINKY_END_LEFT": "pinkytoe_03_l_end",
+    "SKIN_TOE_PINKY_END_RIGHT": "pinkytoe_03_r_end",
+    "UNWEIGHTED_LEG_FOOT_HEEL_POSITION_LEFT": "heel_l",
+    "UNWEIGHTED_LEG_FOOT_HEEL_POSITION_RIGHT": "heel_r",
+    "UNWEIGHTED_LEG_FOOT_TOE_POSITION_LEFT": "toe_l",
+    "UNWEIGHTED_LEG_FOOT_TOE_POSITION_RIGHT": "toe_r",
+    "SKNCONTROL_LOWER_LG_TWIST_1_LEFT": "lower_leg_twist_01_l",
+    "SKNCONTROL_LOWER_LG_TWIST_1_RIGHT": "lower_leg_twist_01_r",
+    "SKNCONTROL_LOWER_LG_TWIST_2_LEFT": "lower_leg_twist_02_l",
+    "SKNCONTROL_LOWER_LG_TWIST_2_RIGHT": "lower_leg_twist_02_r",
+    "SKNCONTROL_ARM_TRICEP_LEFT": "tricep_l",
+    "SKNCONTROL_ARM_TRICEP_RIGHT": "tricep_r",
+    "SKNCONTROL_ARM_BICEP_LEFT": "bicep_l",
+    "SKNCONTROL_ARM_BICEP_RIGHT": "bicep_r",
+    "SKNCONTROL_BUTT_CHEEK_LEFT": "butt_cheek_l",
+    "SKNCONTROL_BUTT_CHEEK_RIGHT": "butt_cheek_r",
+    "SKNCONTROL_KNEE_VOLUME_LEFT": "deform_knee_l",
+    "SKNCONTROL_KNEE_VOLUME_RIGHT": "deform_knee_r",
+    "SKNCONTROL_HAMSTRING_LEFT": "hamstring_l",
+    "SKNCONTROL_HAMSTRING_RIGHT": "hamstring_r",
+    "SKNCONTROL_QUAD_LEFT": "quad_l",
+    "SKNCONTROL_QUAD_RIGHT": "quad_r",
+    "SKNCONTROL_CALF_LEFT": "calf_l",
+    "SKNCONTROL_CALF_RIGHT": "calf_r",
+    "SKNCONTROL_BELLYBREATH": "belly_breath",
+    "SKNCONTROL_CHESTBREATH": "chest_breath",
+    "SKNCONTROL_BREAST_PIVOT_LEFT" : "breast_pivot_l",
+    "SKNCONTROL_BREAST_PIVOT_RIGHT" : "breast_pivot_r",
+    "SKNCONTROL_BREAST_LEFT" : "breast_l",
+    "SKNCONTROL_BREAST_RIGHT" : "breast_r",
+    "SKNCONTROL_AREOLA_LEFT" : "areola_l",
+    "SKNCONTROL_AREOLA_RIGHT" : "areola_r",
+    "SKNCONTROL_NIPPLE_LEFT" : "nipple_l",
+    "SKNCONTROL_NIPPLE_RIGHT" : "nipple_r"
+}
+
+
+def getDataLocation(nameOfFile):
+	filePath = cmds.file(sceneName = True, query = True)
+	pathToFile = '%s/%s' % (filePath.rsplit('/', 2)[0], 'data/' + nameOfFile + '.json')#regroving that path to go to the assets folder
+	print('The pathToFile is: ' + str(pathToFile))
+	return pathToFile
 
 def makeBufferJoint(*args):
     joint = cmds.ls(selection = True)[0]
@@ -58,6 +237,11 @@ def parentShapesUnderControl(controlJoint, importedShape):
 
 
 def renameBodyJoints(*args):
+    global bodyRegion
+    bodyRegion = cmds.optionMenu(bodyRegionOptionMenu,query = True, value = True)
+    print('renameBodyJoints(), the bodyRegion is: ' + str(bodyRegion))
+    if bodyRegion == 'custom':
+        bodyRegion = cmds.textField('bodyRegionTextField', query = True, text = True)
     print('renameBodyJoints(), the FBSideAbbreviation is: ' + str(FBSideAbbreviation))
     print('renameBodyJoints(), the RLSideAbbreviation is: ' + str(RLSideAbbreviation)) 
     isStretchyJoint = cmds.checkBox(isStretchyJointCheckbox, query=True, value=True)
@@ -66,7 +250,7 @@ def renameBodyJoints(*args):
     isDynamicsJoint = cmds.checkBox(isDynamicJointCheckbox, query=True, value=True)
     isAttachJoint = cmds.checkBox(isAttachJointCheckbox, query=True, value=True)
     isEnumerated = cmds.checkBox(isEnumeratedCheckbox, query=True, value=True)
-    isPositionJoint = cmds.checkBox(isPositionJointCheckbox, query=True, value=True)
+    isPositionJoint = cmds.checkBox(isPivotJointCheckbox, query=True, value=True)
     print('renameBodyJoints(), isTwistJoint is: ' + str(isTwistJoint))
     if isEnumerated == True:
         print('renameBodyJoints(), isEnumerated is ' + str(isEnumerated))
@@ -88,7 +272,7 @@ def renameBodyJoints(*args):
             if isDynamicsJoint:
                 name = 'dyn_' + name
             if isPositionJoint:
-                name = name + '_pos'
+                name = name + '_pivot'
             if isAttachJoint:
                 name = name + '_Attach'
             if isEnumerated == True:
@@ -105,6 +289,8 @@ def renameBodyJoints(*args):
         for eachJoint, eachName in zip(jointSelection, renameList):
             cmds.rename(eachJoint, eachName)
             print('renameBodyJoints(), the eachJoint is: ' + eachJoint + ' and the eachName is: ' + eachName)
+        updateTextField(name, 'unrealName')
+        
     else:
          print('renameBodyJoints(),you gotta select a joint bra')
 
@@ -268,6 +454,114 @@ def listSkinJoints(*args):
             skinJoints.append(eachJoint)
     return skinJoints
 
+
+def writeNewNamingConventionData(*args):
+        
+    selectionInList = False
+    for eachEntry in data:
+        if eachEntry == eachController:
+            selectionInList = True	
+
+    newData = {eachController : {"Attributes": characterizationList}}
+    print('readWriteCharacterization(), newData is in data is: ' + str(newData))
+
+
+    if selectionInList:
+        print('readWriteCharacterization(), newData for update is: ' + str(newData))
+        data.update(newData)
+        print('readWriteCharacterization(), data after update is for update is: ' + str(data))
+
+    else:
+        data = data | newData
+        
+    with open(path, 'w') as writefile:
+        json.dump(data, writefile, sort_keys=True, indent=4)
+
+
+
+def namingConventionSwap(*args):
+    dataFile = cmds.textField('nameSwapDataFile', query = True, text = True)
+    path = getDataLocation(dataFile)
+    fileExists = False
+    from pathlib import Path
+    print('readWriteCharacterization(), the path to data is: ' + path)
+    if os.path.exists(path):
+        print(f"The path {dataFile} exists.")
+        fileExists = True
+    else:
+        print(f"The path {dataFile} does not exist.")
+        fileExists = False
+
+    from collections import OrderedDict
+    data = OrderedDict()
+
+    
+    print('readWriteCharacterization(), namingConventionSwapDirection is: ' + str(namingConventionSwapDirection))
+
+    if fileExists == True:
+        rootJoint = cmds.textField('jointRootTextField', query = True, text = True)
+        jointHierarchy = cmds.listRelatives(rootJoint, allDescendents = True, type = 'joint')
+        
+        with open(path, 'r') as loadedData:
+            data = json.load(loadedData)
+        
+        print('readWriteCharacterization(), data in data is: ' + str(data))
+
+        keytoValue = True
+        if namingConventionSwapDirection == 'JFMToUnreal':
+            print('namingConventionSwap(), swapping from JFM to Unreal naming convention')
+            keytoValue = True
+        elif namingConventionSwapDirection == 'UnrealToJFM':
+            print('namingConventionSwap(), swapping from Unreal to JFM naming convention')
+            keytoValue = False
+        
+        print('namingConventionSwap(), the jointHierarchy is: ' + str(jointHierarchy))
+        for eachJoint in jointHierarchy:
+            print('namingConventionSwap(), eachJoint in jointHierarchy is : ' + str(eachJoint))
+            if keytoValue == True:
+                if eachJoint in data:
+                    print('namingConventionSwap(), eachJoint is: ' + eachJoint + ' and the new name is: ' + data[eachJoint])
+                    cmds.rename(eachJoint, data[eachJoint])
+            elif keytoValue == False:
+                if eachJoint in data.values():
+                    print('namingConventionSwap(), eachJoint is: ' + eachJoint + ' and the new name is: ' + list(data.keys())[list(data.values()).index(eachJoint)])
+                    cmds.rename(eachJoint, list(data.keys())[list(data.values()).index(eachJoint)])
+    else:
+        print('readWriteCharacterization(), the data file ' + dataFile + ' does not exist.  Using default naming convention swap data.')
+        data = defaultNamingConventionSwapData
+        selectionInList = False
+        with open(path, 'w') as writefile:
+            json.dump(data, writefile, sort_keys=True, indent=4)
+
+
+
+#imports a json file
+def getDataFile(nameOfFile):
+	filePath = cmds.file(sceneName = True, query = True)
+	#print('The filePath is: ' + str(filePath))
+	pathToFile = '%s/%s' % (filePath.rsplit('/', 2)[0], 'data/' + nameOfFile + '.json')#regroving that path to go to the assets folder
+	
+	#print('The splitFilePath is: ' + str(pathToFile))
+
+	from collections import OrderedDict
+	data = OrderedDict()
+	
+	with open(pathToFile) as nameOfFile:
+		data = json.load(nameOfFile, object_pairs_hook=OrderedDict)
+	#print('getDataFile(), The data as an ordered list is: ' + str(data))
+	return data
+
+
+def setNamingConvention(namingConventionDirection):
+    global namingConventionSwapDirection
+    namingConventionSwapDirectionValue = cmds.optionMenu(nameConventionSwapOptionsMenu, query = True, value = True)
+    if namingConventionSwapDirectionValue == 'JFM to Unreal':
+        namingConventionSwapDirection = 'JFMToUnreal'
+    elif namingConventionSwapDirectionValue == 'Unreal to JFM':
+        namingConventionSwapDirection = 'UnrealToJFM'
+    print('setNamingConvention(), the namingConventionDirection is:' + namingConventionDirection)
+
+
 def selectSkinJoints(*args):
     jointRoot = cmds.textField('jointRootTextField', query = True, text = True)
     jointHierarchy = cmds.listRelatives(jointRoot, allDescendents = True, type = 'joint')
@@ -286,7 +580,7 @@ def setControlType(control):
 def setBodyRegionName(name):
     global bodyRegion
     bodyRegion = name
-    print('setBodyRegionName(), the bodyRegoin is:' + name)
+    print('setBodyRegionName(), the bodyRegion is:' + name)
 
 
 def setFingerChainName(name):
@@ -339,6 +633,8 @@ def skinSelectedMeshes(*args):
     for eachMesh in selectedMeshes:
         cmds.skinCluster(skinJoints,eachMesh, toSelectedBones=True)
 
+def updateTextField(newText, textFieldName):
+    cmds.textField(textFieldName, edit=True, text=newText)
 
 
 #___________________________________________Start GUI___________________________________________
@@ -394,43 +690,9 @@ cmds.separator(h=10, style='none')
 cmds.text('Rename Unreal Body joints for, Select the joint(s) in order, set region and hit button')
 cmds.separator(h=10, style='single')
 
-cmds.rowColumnLayout(numberOfColumns=4, columnWidth=[(1,200), (2,200), (3,200), (4,200)], columnOffset=[(1,'both', 3)])
-rightLeftSide = cmds.optionMenu(label='Right/Left Side', changeCommand=setRLSide)
-cmds.menuItem(label='none')
-cmds.menuItem(label='left')
-cmds.menuItem(label='right')
-
-cmds.separator(w=10, style='none')
-frontBackSide = cmds.optionMenu(label='Front/Back Side', changeCommand=setFBSide)
-cmds.menuItem(label='none')
-cmds.menuItem(label='front')
-cmds.menuItem(label='back')
-cmds.separator(w=10, style='none')
-cmds.setParent('..')
-
-cmds.separator(h=10, style='single')
-
-cmds.rowColumnLayout(numberOfColumns=3, columnWidth=[(1,265), (2,265), (3,265)], columnOffset=[(1,'both', 3)])
-isEnumeratedCheckbox = cmds.checkBox(label='is enumerated', value=False)
-cmds.text('start number:')
-startNumberSequence = cmds.intField("startNumberIntField", value = 0)
-cmds.setParent('..')
-
-cmds.separator(h=10, style='single')
-
-cmds.rowColumnLayout(numberOfColumns=6, columnWidth=[(1,130), (2,130), (3,130), (4,130), (5,130), (6,130)], columnOffset=[(1,'both', 3)])
-isStretchyJointCheckbox = cmds.checkBox(label='stretchy joint', value=False)
-isTwistJointCheckbox = cmds.checkBox(label='twist joint', value=False)
-isDeformJointCheckbox = cmds.checkBox(label='deform joint', value=False)
-isDynamicJointCheckbox = cmds.checkBox(label='dynamic joint', value=False)
-isAttachJointCheckbox = cmds.checkBox(label='attach joint', value=False)
-isPositionJointCheckbox = cmds.checkBox(label='position joint', value=False)
-cmds.setParent('..')
-
-cmds.separator(h=10, style='double')
-
-cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1,400), (2,400)], columnOffset=[(1,'both', 3)])
-bodyRegion = cmds.optionMenu(label='Body Region', changeCommand=setBodyRegionName)
+cmds.rowColumnLayout(numberOfColumns=4, columnWidth=[(1,180), (2,180), (3,180), (4,180)], columnSpacing=[(1, 10), (2, 10), (3, 10), (4, 10)], columnOffset=[(1,'both', 3)])
+bodyRegionOptionMenu = cmds.optionMenu(label='Body Region', changeCommand=setBodyRegionName)
+cmds.menuItem(label='custom')
 cmds.menuItem(label='pelvis')
 cmds.menuItem(label='spine')
 cmds.menuItem(label='neck')
@@ -449,9 +711,47 @@ cmds.menuItem(label='foot')
 cmds.menuItem(label='ball')
 cmds.menuItem(label='toe')
 cmds.menuItem(label='heel')
+
+cmds.textField('bodyRegionTextField', editable = True, text = 'custom name')
+
+rightLeftSide = cmds.optionMenu(label='Right/Left Side', changeCommand=setRLSide)
+cmds.menuItem(label='none')
+cmds.menuItem(label='left')
+cmds.menuItem(label='right')
+
+frontBackSide = cmds.optionMenu(label='Front/Back Side', changeCommand=setFBSide)
+cmds.menuItem(label='none')
+cmds.menuItem(label='front')
+cmds.menuItem(label='back')
+cmds.setParent('..')
+
+cmds.separator(h=10, style='single')
+
+cmds.rowColumnLayout(numberOfColumns=4, columnWidth=[(1,200), (2,200), (3,200), (4,200)], columnOffset=[(1,'both', 3)])
+isEnumeratedCheckbox = cmds.checkBox(label='is enumerated', value=False)
+cmds.text('start number:')
+startNumberSequence = cmds.intField("startNumberIntField", value = 0)
+cmds.separator(h=10, style='none')
+cmds.setParent('..')
+
+cmds.separator(h=10, style='single')
+
+cmds.rowColumnLayout(numberOfColumns=6, columnWidth=[(1,130), (2,130), (3,130), (4,130), (5,130), (6,130)], columnOffset=[(1,'both', 3)])
+isStretchyJointCheckbox = cmds.checkBox(label='stretchy joint', value=False)
+isTwistJointCheckbox = cmds.checkBox(label='twist joint', value=False)
+isDeformJointCheckbox = cmds.checkBox(label='deform joint', value=False)
+isDynamicJointCheckbox = cmds.checkBox(label='dynamic joint', value=False)
+isAttachJointCheckbox = cmds.checkBox(label='attach joint', value=False)
+isPivotJointCheckbox = cmds.checkBox(label='pivot joint', value=False)
+cmds.setParent('..')
+
+cmds.separator(h=10, style='single')
+
+cmds.rowColumnLayout(numberOfColumns=1, columnWidth=[(1,800)], columnOffset=[(1,'both', 3)])
 cmds.button(label = 'Rename Joint', command = renameBodyJoints)
 cmds.setParent('..')
 
+cmds.separator(h=10, style='double')
 cmds.separator(h=10, style='double')
 
 cmds.rowColumnLayout(numberOfColumns=1, columnWidth=[(1,800)], columnOffset=[(1,'both', 3)])
@@ -478,8 +778,17 @@ cmds.setParent('..')
 
 cmds.rowColumnLayout(numberOfColumns=1, columnWidth=[(1,800)], columnOffset=[(1,'both', 3)])
 cmds.button(label = 'Rename Finger Joints', command = renameFingerJoints)
+cmds.textField('unrealName', editable = True, text = 'new name')
 cmds.setParent('..')
 
+cmds.rowColumnLayout(numberOfColumns=2, columnWidth=[(1,400), (2,400)])
+cmds.textField('jointRootTextField', text = 'root')
+cmds.textField('nameSwapDataFile', text = 'JFM-Unreal_SkeletalNamingConvention_Dict')
+nameConventionSwapOptionsMenu = cmds.optionMenu(label='Name Convention Swap', changeCommand=setNamingConvention)
+cmds.menuItem(label='JFM to Unreal')
+cmds.menuItem(label='Unreal to JFM')
+cmds.button(label = 'Run Name Convention Swap', command = namingConventionSwap)
+cmds.setParent('..')
 
 cmds.setParent('..')
 
